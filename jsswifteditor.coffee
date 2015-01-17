@@ -23,18 +23,18 @@ recreateSandbox = ->
 
 	window.sandbox = iframe.contentWindow
 	sandbox.eval "window.typeOf = #{typeOf.toString()}"
+	sandbox.eval "console.debug = function() {};
+				console.info = function() {};
+				console.error = function() {};
+				console.log = function() {};"
 
 typeOf = (obj) ->
 	({}).toString.call(obj).match(/\s([a-zA-Z]+)/)[1]
 
 countIterations = (rootNode, block, source) ->
 	modifiedCode = "var __jsPlaygroundCount__ = 0;
-					loop:
 					#{source.substring(block.range[0], block.body.range[0] + 1)}
-					if(__jsPlaygroundCount__++ > #{LOOP_MAX_ITERATIONS}) {
-						__jsPlaygroundCount__ = -1;
-						break loop;
-					}
+					__jsPlaygroundCount__++;
 					#{source.substring(block.body.range[0] + 1, block.range[1])}
 					__jsPlaygroundCount__;"
 
@@ -49,6 +49,15 @@ countIterations = (rootNode, block, source) ->
 
 	sandbox.eval modifiedCode
 	# console.log modifiedCode
+
+countCalls = (rootNode, block, source) ->
+	modifiedCode = "var __jsPlaygroundCount__ = 0;
+					#{source.substring(rootNode.range[0], block.body.range[0] + 1)}
+					__jsPlaygroundCount__++;
+					#{source.substring(block.body.range[0] + 1, rootNode.range[1])}
+					__jsPlaygroundCount__;"
+	# console.log(modifiedCode)
+	sandbox.eval modifiedCode
 
 parse = (rootNode, source) ->
 	codeAnalysis = []
@@ -145,9 +154,10 @@ parse = (rootNode, source) ->
 
 			when "FunctionDeclaration"
 				vars = []
+				calls = countCalls rootNode, node, source
 				sandbox.eval "#{source[node.range[0]...node.range[1]]}"
 				vars.push
-					name: node.id.name
+					name: node.id.name + " (#{calls} times)"
 					type: sandbox.eval "typeOf(#{node.id.name})"
 
 				analysisChunk = {}
@@ -158,7 +168,6 @@ parse = (rootNode, source) ->
 
 			when "ForStatement", "WhileStatement"
 				vars = []
-
 				iterations = countIterations rootNode, node, source
 				vars.push
 					name: "(#{if iterations is -1 then ">#{LOOP_MAX_ITERATIONS}" else iterations} times)"
@@ -182,8 +191,8 @@ updateAnalysis = ->
 		loc: true
 		range: true
 
-	console.log JSON.stringify tree, null, 4
-	console.log "\n"
+	# console.log JSON.stringify tree, null, 4
+	# console.log "\n"
 
 	codeAnalysis = parse tree, source
 
