@@ -119,6 +119,15 @@ parse = (rootNode, source) ->
 
 							codeAnalysis.push analysisChunk
 
+					else
+						analysisChunk = {}
+						analysisChunk.line = node.expression.loc.start.line
+
+						returnVal = sandbox.eval "#{source[node.expression.range[0]...node.expression.range[1]]};"
+						analysisChunk.raw = "-> #{returnVal}: #{typeOf returnVal}"
+
+						codeAnalysis.push analysisChunk
+
 			when "VariableDeclaration"
 				vars = []
 				for d in node.declarations
@@ -173,8 +182,8 @@ updateAnalysis = ->
 		loc: true
 		range: true
 
-	# console.log JSON.stringify tree, null, 4
-	# console.log "\n"
+	console.log JSON.stringify tree, null, 4
+	console.log "\n"
 
 	codeAnalysis = parse tree, source
 
