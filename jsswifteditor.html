@@ -8,13 +8,8 @@
 				padding: 0;
 			}
 
-			#editor { 
-				/*position: absolute;*/
-				/*top: 0;
-				right: 0;
-				bottom: 0;
-				left: 0;*/
-				width: 25vw;
+			#editor {
+				width: 30vw;
 				height: 100vh;
 				display: inline-block;
 				margin: 0;
@@ -28,16 +23,15 @@
 				color: transparent !important;
 			}
 
-			#analysis { 
-				/*position: absolute;*/
-				/*top: 0;
-				right: 0;
-				bottom: 0;
-				left: 0;*/
+			#analysis {
 				width: 40vw;
 				height: 100vh;
 				display: inline-block;
 				margin: 0;
+			}
+
+			#sandbox-iframe {
+				display: none;
 			}
 		</style>
 
@@ -54,6 +48,7 @@ var c = 2 + a;
 var d = b + c;
 
 console.log(c * x);
+console.log(new Date());
 
 function distance(x1, y1, x2, y2) {
 	dx = x2 - x1;
@@ -61,7 +56,17 @@ function distance(x1, y1, x2, y2) {
 	return Math.sqrt(dx * dx + dy * dy);
 }
 
-var dist = distance(a * x, c, b - c, c / x);</div>
+var dist = distance(a * x, c, b - c, c / x);
+distance(0, 0, 1, 1);
+
+for(var i = 0; i < 10; i++) {
+	console.log(i);
+}
+
+while(a < x) {
+	console.log(a);
+	a++;
+}</div>
 			
 		<div id="analysis" class="disabled"></div>
 
