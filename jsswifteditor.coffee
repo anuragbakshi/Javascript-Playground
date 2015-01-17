@@ -12,6 +12,12 @@ analysis.renderer.setShowGutter false
 analysis.setHighlightActiveLine false
 
 # *************************************************************************************************
+tryEval = (code) ->
+	try 
+		sandbox.eval code
+	catch error
+		error
+
 recreateSandbox = ->
 	oldIframe = document.getElementById "sandbox-iframe"
 	if oldIframe?
@@ -22,8 +28,8 @@ recreateSandbox = ->
 	document.body.appendChild iframe
 
 	window.sandbox = iframe.contentWindow
-	sandbox.eval "window.typeOf = #{typeOf.toString()}"
-	sandbox.eval "console.debug = function() {};
+	tryEval "window.typeOf = #{typeOf.toString()}"
+	tryEval "console.debug = function() {};
 				console.info = function() {};
 				console.error = function() {};
 				console.log = function() {};"
@@ -47,17 +53,24 @@ countIterations = (rootNode, block, source) ->
 	# 	clearInterval workerTimer
 	# 	callback event.data
 
-	sandbox.eval modifiedCode
+	tryEval modifiedCode
 	# console.log modifiedCode
 
 countCalls = (rootNode, block, source) ->
 	modifiedCode = "var __jsPlaygroundCount__ = 0;
-					#{source.substring(rootNode.range[0], block.body.range[0] + 1)}
-					__jsPlaygroundCount__++;
-					#{source.substring(block.body.range[0] + 1, rootNode.range[1])}
-					__jsPlaygroundCount__;"
-	# console.log(modifiedCode)
-	sandbox.eval modifiedCode
+						#{source.substring(rootNode.range[0], block.body.range[0] + 1)}
+						__jsPlaygroundCount__++;
+						#{source.substring(block.body.range[0] + 1, rootNode.range[1])}
+						__jsPlaygroundCount__;"
+	console.log(modifiedCode)
+	
+	# try
+	# 	tryEval modifiedCode
+	# catch error
+	# 	console.log(error)
+	# 	return -1
+
+	tryEval modifiedCode
 
 parse = (rootNode, source) ->
 	codeAnalysis = []
@@ -70,11 +83,11 @@ parse = (rootNode, source) ->
 				switch node.expression.type
 					when "AssignmentExpression"
 						vars = []
-						sandbox.eval "#{source[node.expression.range[0]...node.expression.range[1]]}"
+						tryEval "#{source[node.expression.range[0]...node.expression.range[1]]}"
 						vars.push
 							name: node.expression.left.name
-							value: sandbox.eval "JSON.stringify(#{node.expression.left.name})"
-							type: sandbox.eval "typeOf(#{node.expression.left.name})"
+							value: tryEval "JSON.stringify(#{node.expression.left.name})"
+							type: tryEval "typeOf(#{node.expression.left.name})"
 						
 						analysisChunk = {}
 						analysisChunk.line = node.expression.loc.start.line
@@ -87,11 +100,11 @@ parse = (rootNode, source) ->
 						for e in node.expression.expressions
 							switch e.type
 								when "AssignmentExpression"
-									sandbox.eval "#{source[e.range[0]...e.range[1]]}"
+									tryEval "#{source[e.range[0]...e.range[1]]}"
 									vars.push
 										name: e.left.name
-										value: sandbox.eval "JSON.stringify(#{e.left.name})"
-										type: sandbox.eval "typeOf(#{e.left.name})"
+										value: tryEval "JSON.stringify(#{e.left.name})"
+										type: tryEval "typeOf(#{e.left.name})"
 
 						analysisChunk = {}
 						analysisChunk.line = node.expression.loc.start.line
@@ -101,11 +114,11 @@ parse = (rootNode, source) ->
 
 					when "UpdateExpression"
 						vars = []
-						sandbox.eval "#{source[node.expression.range[0]...node.expression.range[1]]}"
+						tryEval "#{source[node.expression.range[0]...node.expression.range[1]]}"
 						vars.push
 							name: node.expression.argument.name
-							value: sandbox.eval "JSON.stringify(#{node.expression.argument.name})"
-							type: sandbox.eval "typeOf(#{node.expression.argument.name})"
+							value: tryEval "JSON.stringify(#{node.expression.argument.name})"
+							type: tryEval "typeOf(#{node.expression.argument.name})"
 						
 						analysisChunk = {}
 						analysisChunk.line = node.expression.loc.start.line
@@ -118,12 +131,12 @@ parse = (rootNode, source) ->
 								for arg in node.expression.arguments
 									codeAnalysis.push
 										line: node.expression.loc.start.line
-										raw: "=> #{sandbox.eval("#{source[arg.range[0]...arg.range[1]]}").toString()}"
+										raw: "=> #{tryEval("#{source[arg.range[0]...arg.range[1]]}").toString()}"
 						else
 							analysisChunk = {}
 							analysisChunk.line = node.expression.loc.start.line
 
-							returnVal = sandbox.eval "#{source[node.expression.range[0]...node.expression.range[1]]};"
+							returnVal = tryEval "#{source[node.expression.range[0]...node.expression.range[1]]};"
 							analysisChunk.raw = "-> #{returnVal}: #{typeOf returnVal}"
 
 							codeAnalysis.push analysisChunk
@@ -132,7 +145,7 @@ parse = (rootNode, source) ->
 						analysisChunk = {}
 						analysisChunk.line = node.expression.loc.start.line
 
-						returnVal = sandbox.eval "#{source[node.expression.range[0]...node.expression.range[1]]};"
+						returnVal = tryEval "#{source[node.expression.range[0]...node.expression.range[1]]};"
 						analysisChunk.raw = "-> #{returnVal}: #{typeOf returnVal}"
 
 						codeAnalysis.push analysisChunk
@@ -140,11 +153,11 @@ parse = (rootNode, source) ->
 			when "VariableDeclaration"
 				vars = []
 				for d in node.declarations
-					sandbox.eval "#{source[d.range[0]...d.range[1]]}"
+					tryEval "#{source[d.range[0]...d.range[1]]}"
 					vars.push
 						name: d.id.name
-						value: sandbox.eval "JSON.stringify(#{d.id.name})"
-						type: sandbox.eval "typeOf(#{d.id.name})"
+						value: tryEval "JSON.stringify(#{d.id.name})"
+						type: tryEval "typeOf(#{d.id.name})"
 
 				analysisChunk = {}
 				analysisChunk.line = node.loc.start.line
@@ -155,10 +168,11 @@ parse = (rootNode, source) ->
 			when "FunctionDeclaration"
 				vars = []
 				calls = countCalls rootNode, node, source
-				sandbox.eval "#{source[node.range[0]...node.range[1]]}"
+				console.log(calls)
+				tryEval "#{source[node.range[0]...node.range[1]]}"
 				vars.push
-					name: node.id.name + " (#{calls} times)"
-					type: sandbox.eval "typeOf(#{node.id.name})"
+					name: node.id.name + calls
+					type: tryEval "typeOf(#{node.id.name})"
 
 				analysisChunk = {}
 				analysisChunk.line = node.loc.start.line
