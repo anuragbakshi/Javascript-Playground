@@ -53,7 +53,7 @@ console.log(new Date());
 function distance(x1, y1, x2, y2) {
 	dx = x2 - x1;
 	dy = y2 - y1;
-	return distance(0, 0, 0, 0);
+	return Math.sqrt(dx * dx + dy * dy);
 }
 
 var dist = distance(a * x, c, b - c, c / x);

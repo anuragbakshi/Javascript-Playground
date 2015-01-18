@@ -62,7 +62,7 @@ countCalls = (rootNode, block, source) ->
 						__jsPlaygroundCount__++;
 						#{source.substring(block.body.range[0] + 1, rootNode.range[1])}
 						__jsPlaygroundCount__;"
-	console.log(modifiedCode)
+	# console.log(modifiedCode)
 	
 	# try
 	# 	tryEval modifiedCode
@@ -168,10 +168,11 @@ parse = (rootNode, source) ->
 			when "FunctionDeclaration"
 				vars = []
 				calls = countCalls rootNode, node, source
-				console.log(calls)
+				# console.log(typeOf calls)
+				# console.log(calls)
 				tryEval "#{source[node.range[0]...node.range[1]]}"
 				vars.push
-					name: node.id.name + calls
+					name: node.id.name + if typeOf calls is "Number" then " (#{calls} calls)" else " (#{calls})"
 					type: tryEval "typeOf(#{node.id.name})"
 
 				analysisChunk = {}
