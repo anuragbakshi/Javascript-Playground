@@ -18,8 +18,6 @@ analysis.setShowPrintMargin false
 analysis.setHighlightActiveLine false
 analysis.renderer.setShowGutter false
 analysis.renderer.setShowPrintMargin false
-
-# *************************************************************************************************
 verifyHalts = (code, timeout, callback) ->
 	blob = new Blob ["#{SILENCE_CONSOLE}
 					var ex;
@@ -32,6 +30,7 @@ verifyHalts = (code, timeout, callback) ->
 						postMessage(e.message);
 					else
 						postMessage();\n"], type: "application/javascript"
+	
 	worker = new Worker URL.createObjectURL blob
 	
 	workerTimer = setTimeout ->
@@ -75,18 +74,7 @@ countIterations = (block, source) ->
 					#{source.substring(block.body.range[0] + 1, source.length)}
 					__jsPlaygroundCount__;"
 
-	# console.log modifiedCode
-	# worker = new Worker "data:text/javascript;base64,#{btoa(modifiedCode)}"
-	# blob = new Blob [modifiedCode], type: "application/javascript"
-	# worker = new Worker URL.createObjectURL blob
-	
-	# workerTimer = setTimeout worker.terminate, LOOP_TIMEOUT
-	# worker.onmessage = (event) ->
-	# 	clearInterval workerTimer
-	# 	callback event.data
-
 	tryEval modifiedCode
-	# console.log modifiedCode
 
 countCalls = (block, source) ->
 	modifiedCode = "var __jsPlaygroundCount__ = 0;
@@ -94,13 +82,6 @@ countCalls = (block, source) ->
 					__jsPlaygroundCount__++;
 					#{source.substring(block.body.range[0] + 1, source.length)}
 					__jsPlaygroundCount__;"
-	# console.log(modifiedCode)
-	
-	# try
-	# 	tryEval modifiedCode
-	# catch error
-	# 	console.log(error)
-	# 	return -1
 
 	tryEval modifiedCode
 
@@ -114,20 +95,16 @@ resolveValues = (expression, source) ->
 					})()
 					#{source.substring(expression.range[1], source.length)}
 					__jsPlaygroundValues__;"
-
-	# console.log modifiedCode
+	
 	tryEval modifiedCode
 
 processExpression = (expression, source, codeAnalysis) ->
-	# console.log expression
 	switch expression.type
 		when "AssignmentExpression", "UpdateExpression"
 			recreateSandbox()
 			values = resolveValues expression, source
-			# console.log expression, values if expression.type is "UpdateExpression"
 
 			vars = []
-	# 		tryEval "#{source[0...expression.range[1]]}"
 			for v in values
 				vars.push
 					name: (if expression.type is "AssignmentExpression" then expression.left else expression.argument).name
@@ -142,57 +119,8 @@ processExpression = (expression, source, codeAnalysis) ->
 
 		when "SequenceExpression"
 			recreateSandbox()
-
-			# vars = []
 			for e in expression.expressions
 				processExpression e, source, codeAnalysis
-	# 			switch e.type
-	# 				when "AssignmentExpression"
-	# 					tryEval "#{source[e.range[0]...e.range[1]]}"
-	# 					vars.push
-	# 						name: e.left.name
-	# 						value: tryEval "JSON.stringify(#{e.left.name})"
-	# 						type: tryEval "typeOf(#{e.left.name})"
-
-	# 		analysisChunk = {}
-	# 		analysisChunk.line = node.expression.loc.start.line
-	# 		analysisChunk.vars = vars
-
-	# 		codeAnalysis.push analysisChunk
-
-	# 	when "UpdateExpression"
-	# 		recreateSandbox()
-
-	# 		vars = []
-	# 		tryEval "#{source[0...node.expression.range[1]]}"
-	# 		vars.push
-	# 			name: node.expression.argument.name
-	# 			value: tryEval "JSON.stringify(#{node.expression.argument.name})"
-	# 			type: tryEval "typeOf(#{node.expression.argument.name})"
-			
-	# 		analysisChunk = {}
-	# 		analysisChunk.line = node.expression.loc.start.line
-	# 		analysisChunk.vars = vars
-
-	# 		codeAnalysis.push analysisChunk
-
-		# when "CallExpression"
-		# 	;
-	# 		# recreateSandbox()
-
-	# 		if node.expression.callee.object?.name is "console" and node.expression.callee.property.name in ["debug", "info", "error", "log"]
-	# 				for arg in node.expression.arguments
-	# 					codeAnalysis.push
-	# 						line: node.expression.loc.start.line
-	# 						raw: "=> #{tryEval("#{source[arg.range[0]...arg.range[1]]}").toString()}"
-	# 		else
-	# 			analysisChunk = {}
-	# 			analysisChunk.line = node.expression.loc.start.line
-
-	# 			returnVal = tryEval "#{source[node.expression.range[0]...node.expression.range[1]]};"
-	# 			analysisChunk.raw = "-> #{returnVal}: #{typeOf returnVal}"
-
-	# 			codeAnalysis.push analysisChunk
 
 		else
 			if expression.type is "CallExpression" and expression.callee.object?.name is "console" and expression.callee.property.name in ["debug", "info", "error", "log"]
@@ -203,40 +131,25 @@ processExpression = (expression, source, codeAnalysis) ->
 							line: expression.loc.start.line
 							raw: "=> \"#{v[0].toString()}\""
 			else
-				# console.log expression
 				recreateSandbox()
 				values = resolveValues expression, source
 
 				for v in values
 					codeAnalysis.push
 						line: expression.loc.start.line
-						# raw: "-> #{("#{v[0]}: #{v[1]}" for v in values).join " | "}"
 						raw: "-> #{v[0]}: #{v[1]}"
-
-		# 		returnVal = tryEval "#{source[node.expression.range[0]...node.expression.range[1]]};"
-		# 		analysisChunk.raw = "-> #{returnVal}: #{typeOf returnVal}"
-
-			# codeAnalysis.push analysisChunk
-	# codeAnalysis.push
-	# 	line: node.expression.loc.start.line
-	# 	vars: resolveValues node.expression, source
 
 parse = (rootNode, source) ->
 	codeAnalysis = []
 
 	for node in rootNode.body
-		# console.log JSON.stringify node, null, 4
-		# console.log "\n"
 		switch node.type
 			when "ExpressionStatement"
-				# console.log node.expression
 				processExpression node.expression, source, codeAnalysis
 
 			when "VariableDeclaration"
 				vars = []
 				for d in node.declarations
-					# tryEval "#{source[d.range[0]...d.range[1]]}"
-					# console.log d
 					values = resolveValues d.init, source
 					for v in values
 						vars.push
@@ -244,28 +157,21 @@ parse = (rootNode, source) ->
 							value: v[0]
 							type: v[1]
 
-				analysisChunk = {}
-				analysisChunk.line = node.loc.start.line
-				analysisChunk.vars = vars
-
-				codeAnalysis.push analysisChunk
-				# console.log analysisChunk
+				codeAnalysis.push
+					line: node.loc.start.line
+					vars: vars
 
 			when "FunctionDeclaration"
 				vars = []
 				calls = countCalls node, source
-				# console.log(typeOf calls)
-				# console.log(calls)
 				tryEval "#{source[node.range[0]...node.range[1]]}"
 				vars.push
 					name: node.id.name + if typeOf calls is "Number" then " (#{calls} calls)" else " (#{calls})"
 					type: tryEval "typeOf(#{node.id.name})"
 
-				analysisChunk = {}
-				analysisChunk.line = node.loc.start.line
-				analysisChunk.vars = vars
-
-				codeAnalysis.push analysisChunk
+				codeAnalysis.push
+					line: node.loc.start.line
+					vars: vars
 
 			when "ForStatement", "WhileStatement"
 				recreateSandbox()
@@ -276,11 +182,9 @@ parse = (rootNode, source) ->
 					name: "(#{iterations} times)"
 					type: node.type
 
-				analysisChunk = {}
-				analysisChunk.line = node.loc.start.line
-				analysisChunk.vars = vars
-
-				codeAnalysis.push analysisChunk
+				codeAnalysis.push
+					line: node.loc.start.line
+					vars: vars
 
 				codeAnalysis.push parse(node.body, source)...
 
@@ -299,9 +203,6 @@ updateAnalysis = ->
 				tree = esprima.parse source,
 					loc: true
 					range: true
-
-				# console.log JSON.stringify tree, null, 4
-				# console.log "\n"
 
 				codeAnalysis = parse tree, source
 
