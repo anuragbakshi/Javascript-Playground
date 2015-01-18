@@ -43,7 +43,7 @@
 			}
 		</style>
 
-		<script type="text/javascript" src="http://coffeescript.org/extras/coffee-script.js"></script>
+		<script type="text/javascript" src="//coffeescript.org/extras/coffee-script.js"></script>
 		<script type="text/javascript" src="esprima.js"></script>
 	</head>
 	
@@ -84,9 +84,39 @@ while(a < x) {
 true;
 10 > 5;</div>
 			
-		<div id="analysis" class="disabled" on></div>
+		<div id="analysis" class="disabled"></div>
 
-		<script src="src-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
+		<script src="src-min-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
 		<script type="text/coffeescript" src="jsswifteditor.coffee"></script>
+
+		<script>
+			function handleDrop(evt) {
+				evt.stopPropagation();
+				evt.preventDefault();
+
+				var f = evt.dataTransfer.files[0];
+
+				var fileReader = new FileReader();
+				fileReader.onload = function(event) {
+					window.__jsPlayground__.editor.setValue(event.target.result);
+				};
+
+				fileReader.readAsText(f);
+			}
+
+			function handleDragOver(evt) {
+				evt.stopPropagation();
+				evt.preventDefault();
+				evt.dataTransfer.dropEffect = "copy";
+			}
+
+			var dropTarget = document.getElementById("editor");
+			dropTarget.addEventListener("dragover", handleDragOver, false);
+			dropTarget.addEventListener("drop", handleDrop, false);
+
+			dropTarget = document.getElementById("analysis");
+			dropTarget.addEventListener("dragover", handleDragOver, false);
+			dropTarget.addEventListener("drop", handleDrop, false);
+		</script>
 	</body>
 </html>

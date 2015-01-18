@@ -2,8 +2,13 @@ SILENCE_CONSOLE = "console.debug = function() {}; console.info = function() {}; 
 
 LOOP_MAX_ITERATIONS = 5000
 
+# global namespace
+window.__jsPlayground__ = {}
+
 editor = ace.edit "editor"
 analysis = ace.edit "analysis"
+window.__jsPlayground__.editor = editor
+window.__jsPlayground__.analysis = analysis
 
 editor.setTheme "ace/theme/monokai"
 editor.getSession().setMode "ace/mode/javascript"
@@ -18,6 +23,7 @@ analysis.setShowPrintMargin false
 analysis.setHighlightActiveLine false
 analysis.renderer.setShowGutter false
 analysis.renderer.setShowPrintMargin false
+
 verifyHalts = (code, timeout, callback) ->
 	blob = new Blob ["#{SILENCE_CONSOLE}
 					var ex;
