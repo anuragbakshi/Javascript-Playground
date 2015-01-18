@@ -1,15 +1,20 @@
+SILENCE_CONSOLE = "console.debug = function() {}; console.info = function() {}; console.error = function() {}; console.log = function() {};"
+
 LOOP_MAX_ITERATIONS = 5000
+LOOP_TIMEOUT = 1000
 
 editor = ace.edit "editor"
 analysis = ace.edit "analysis"
 
 editor.setTheme "ace/theme/monokai"
 editor.getSession().setMode "ace/mode/javascript"
+editor.$blockScrolling = Infinity
 
 analysis.setReadOnly true
 analysis.setShowPrintMargin false
 analysis.renderer.setShowGutter false
 analysis.setHighlightActiveLine false
+analysis.$blockScrolling = Infinity
 
 # *************************************************************************************************
 tryEval = (code) ->
@@ -29,40 +34,54 @@ recreateSandbox = ->
 
 	window.sandbox = iframe.contentWindow
 	tryEval "window.typeOf = #{typeOf.toString()}"
-	tryEval "console.debug = function() {};
-				console.info = function() {};
-				console.error = function() {};
-				console.log = function() {};"
+	tryEval SILENCE_CONSOLE
 
 typeOf = (obj) ->
 	({}).toString.call(obj).match(/\s([a-zA-Z]+)/)[1]
 
-countIterations = (rootNode, block, source) ->
-	modifiedCode = "var __jsPlaygroundCount__ = 0;
-					#{source.substring(block.range[0], block.body.range[0] + 1)}
+countIterations = (rootNode, block, source, callback) ->
+	modifiedCode = "#{SILENCE_CONSOLE}
+					var __jsPlaygroundCount__ = 0;
+					#{source.substring(rootNode.range[0], block.body.range[0] + 1)}
 					__jsPlaygroundCount__++;
 					#{source.substring(block.body.range[0] + 1, block.range[1])}
-					__jsPlaygroundCount__;"
+					postMessage({\"line\": #{block.loc.start.line}, \"iterations\": __jsPlaygroundCount__});"
 
-	# worker = new Worker "data:text/javascript;base64,#{btoa(modifiedCode)}"
-	# blob = new Blob [modifiedCode], type: "application/javascript"
-	# worker = new Worker URL.createObjectURL blob
-	
-	# workerTimer = setTimeout worker.terminate, LOOP_TIMEOUT
-	# worker.onmessage = (event) ->
-	# 	clearInterval workerTimer
-	# 	callback event.data
-
-	tryEval modifiedCode
 	# console.log modifiedCode
 
-countCalls = (rootNode, block, source) ->
-	modifiedCode = "var __jsPlaygroundCount__ = 0;
-						#{source.substring(rootNode.range[0], block.body.range[0] + 1)}
-						__jsPlaygroundCount__++;
-						#{source.substring(block.body.range[0] + 1, rootNode.range[1])}
-						__jsPlaygroundCount__;"
+	# worker = new Worker "data:text/javascript;base64,#{btoa(modifiedCode)}"
+	blob = new Blob [modifiedCode], type: "application/javascript"
+	worker = new Worker URL.createObjectURL blob
+	
+	workerTimer = setTimeout (-> worker.terminate.call worker; callback {line: block.loc.start.line}, true), LOOP_TIMEOUT
+	worker.onmessage = (event) ->
+		clearTimeout workerTimer
+		callback event.data
+
+	worker.postMessage()
+	# worker.terminate()
+
+	# tryEval modifiedCode
+	# console.log modifiedCode
+
+countCalls = (rootNode, block, source, callback) ->
+	modifiedCode = "#{SILENCE_CONSOLE}
+					var __jsPlaygroundCount__ = 0;
+					#{source.substring(rootNode.range[0], block.body.range[0] + 1)}
+					__jsPlaygroundCount__++;
+					#{source.substring(block.body.range[0] + 1, rootNode.range[1])}
+					postMessage({\"line\": #{block.loc.start.line}, \"calls\": __jsPlaygroundCount__});"
 	# console.log(modifiedCode)
+
+	blob = new Blob [modifiedCode], type: "application/javascript"
+	worker = new Worker URL.createObjectURL blob
+	
+	workerTimer = setTimeout (-> worker.terminate.call worker; callback {line: block.loc.start.line}, true), LOOP_TIMEOUT
+	worker.onmessage = (event) ->
+		clearTimeout workerTimer
+		callback event.data, false
+
+	worker.postMessage()
 	
 	# try
 	# 	tryEval modifiedCode
@@ -70,7 +89,7 @@ countCalls = (rootNode, block, source) ->
 	# 	console.log(error)
 	# 	return -1
 
-	tryEval modifiedCode
+	# tryEval modifiedCode
 
 parse = (rootNode, source) ->
 	codeAnalysis = []
@@ -137,7 +156,7 @@ parse = (rootNode, source) ->
 							analysisChunk.line = node.expression.loc.start.line
 
 							returnVal = tryEval "#{source[node.expression.range[0]...node.expression.range[1]]};"
-							analysisChunk.raw = "-> #{returnVal}: #{typeOf returnVal}"
+							analysisChunk.raw = "-> #{JSON.stringify returnVal}: #{typeOf returnVal}"
 
 							codeAnalysis.push analysisChunk
 
@@ -146,7 +165,7 @@ parse = (rootNode, source) ->
 						analysisChunk.line = node.expression.loc.start.line
 
 						returnVal = tryEval "#{source[node.expression.range[0]...node.expression.range[1]]};"
-						analysisChunk.raw = "-> #{returnVal}: #{typeOf returnVal}"
+						analysisChunk.raw = "-> #{JSON.stringify returnVal}: #{typeOf returnVal}"
 
 						codeAnalysis.push analysisChunk
 
@@ -167,12 +186,18 @@ parse = (rootNode, source) ->
 
 			when "FunctionDeclaration"
 				vars = []
-				calls = countCalls rootNode, node, source
+				calls = countCalls rootNode, node, source, (data, timedOut) ->
+					lines = analysis.getValue().split "\n"
+					lines[data.line - 1] = lines[data.line - 1].replace "Analyzing...", (if timedOut then "TIMEOUT" else "#{data.calls} times")
+					analysisText = lines.join "\n"
+					analysis.setValue analysisText
+					console.log analysisText
+
 				# console.log(typeOf calls)
 				# console.log(calls)
 				tryEval "#{source[node.range[0]...node.range[1]]}"
 				vars.push
-					name: node.id.name + if typeOf calls is "Number" then " (#{calls} calls)" else " (#{calls})"
+					name: "(Analyzing...)"
 					type: tryEval "typeOf(#{node.id.name})"
 
 				analysisChunk = {}
@@ -183,9 +208,16 @@ parse = (rootNode, source) ->
 
 			when "ForStatement", "WhileStatement"
 				vars = []
-				iterations = countIterations rootNode, node, source
+				# iterations = countIterations rootNode, node, source
+				iterations = countIterations rootNode, node, source, (data, timedOut) ->
+					lines = analysis.getValue().split "\n"
+					lines[data.line - 1] = lines[data.line - 1].replace "Analyzing...", (if timedOut then "TIMEOUT" else "#{data.iterations} times")
+					analysisText = lines.join "\n"
+					analysis.setValue analysisText
+					console.log analysisText
+
 				vars.push
-					name: "(#{if iterations is -1 then ">#{LOOP_MAX_ITERATIONS}" else iterations} times)"
+					name: "(Analyzing...)"
 					type: node.type
 
 				analysisChunk = {}
