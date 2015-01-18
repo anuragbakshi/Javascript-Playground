@@ -7,15 +7,23 @@ analysis = ace.edit "analysis"
 
 editor.setTheme "ace/theme/monokai"
 editor.getSession().setMode "ace/mode/javascript"
+editor.setFontSize 14
+editor.renderer.setShowPrintMargin false
 
+analysis.setTheme "ace/theme/monokai"
+analysis.getSession().setMode "ace/mode/java"
+analysis.setFontSize 14
 analysis.setReadOnly true
 analysis.setShowPrintMargin false
 analysis.renderer.setShowGutter false
-analysis.setHighlightActiveLine false
+analysis.renderer.setShowPrintMargin false
 
 # *************************************************************************************************
 verifyHalts = (code, timeout, callback) ->
-	blob = new Blob [SILENCE_CONSOLE + code + "\npostMessage();"], type: "application/javascript"
+	blob = new Blob [SILENCE_CONSOLE + "try {" + code + "postMessage();
+	} catch(e) {
+		postMessage(e.message);
+	}\n"], type: "application/javascript"
 	worker = new Worker URL.createObjectURL blob
 	
 	workerTimer = setTimeout ->
@@ -23,9 +31,9 @@ verifyHalts = (code, timeout, callback) ->
 		callback false
 	, timeout
 
-	worker.onmessage = ->
+	worker.onmessage = (event) ->
 		clearTimeout workerTimer
-		callback true
+		callback true, event.data
 
 tryEval = (code) ->
 	try 
@@ -59,7 +67,7 @@ countIterations = (rootNode, block, source) ->
 					#{source.substring(block.body.range[0] + 1, source.length)}
 					__jsPlaygroundCount__;"
 
-	console.log modifiedCode
+	# console.log modifiedCode
 	# worker = new Worker "data:text/javascript;base64,#{btoa(modifiedCode)}"
 	# blob = new Blob [modifiedCode], type: "application/javascript"
 	# worker = new Worker URL.createObjectURL blob
@@ -98,8 +106,10 @@ parse = (rootNode, source) ->
 			when "ExpressionStatement"
 				switch node.expression.type
 					when "AssignmentExpression"
+						recreateSandbox()
+
 						vars = []
-						tryEval "#{source[node.expression.range[0]...node.expression.range[1]]}"
+						tryEval "#{source[0...node.expression.range[1]]}"
 						vars.push
 							name: node.expression.left.name
 							value: tryEval "JSON.stringify(#{node.expression.left.name})"
@@ -129,8 +139,10 @@ parse = (rootNode, source) ->
 						codeAnalysis.push analysisChunk
 
 					when "UpdateExpression"
+						recreateSandbox()
+
 						vars = []
-						tryEval "#{source[node.expression.range[0]...node.expression.range[1]]}"
+						tryEval "#{source[0...node.expression.range[1]]}"
 						vars.push
 							name: node.expression.argument.name
 							value: tryEval "JSON.stringify(#{node.expression.argument.name})"
@@ -220,36 +232,40 @@ updateAnalysis = ->
 	recreateSandbox()
 
 	source = editor.getValue()
-	verifyHalts source, 1000, (halted) ->
+	verifyHalts source, 1000, (halted, exception) ->
 		if halted
-			tree = esprima.parse source,
-				loc: true
-				range: true
+			if exception?
+				analysis.setValue "ERROR: #{exception}", -1
+			else
+				tree = esprima.parse source,
+					loc: true
+					range: true
 
-			# console.log JSON.stringify tree, null, 4
-			# console.log "\n"
+				# console.log JSON.stringify tree, null, 4
+				# console.log "\n"
 
-			codeAnalysis = parse tree, source
+				codeAnalysis = parse tree, source
 
-			lines = []
-			for chunk in codeAnalysis
-				chunkString = ""
-				if chunk.raw?
-					chunkString += chunk.raw
-				if chunk.vars?
-					chunkString += ("#{v.name}: #{v.type} #{if v.value? then "= #{v.value}" else ""}" for v in chunk.vars).join ", "
+				lines = []
+				for chunk in codeAnalysis
+					chunkString = ""
+					if chunk.raw?
+						chunkString += chunk.raw
+					if chunk.vars?
+						chunkString += ("#{v.name}: #{v.type} #{if v.value? then "= #{v.value}" else ""}" for v in chunk.vars).join ", "
 
-				lines[chunk.line - 1] = [] unless lines[chunk.line - 1]?
-				lines[chunk.line - 1].push chunkString
+					lines[chunk.line - 1] = [] unless lines[chunk.line - 1]?
+					lines[chunk.line - 1].push chunkString
 
-			analysisText = ""
-			for line in lines
-				analysisText += line.join " | " if line?
-				analysisText += "\n"
+				analysisText = ""
+				for line in lines
+					analysisText += line.join " | " if line?
+					analysisText += "\n"
 
-			analysis.setValue analysisText
+				analysis.setValue analysisText, -1
 		else
-			analysis.setValue "ERROR: Code does not halt"
+			analysis.setValue "Error exists or code does not halt", -1
 
 updateAnalysis()
-editor.on "change", -> setTimeout updateAnalysis, 1000
+editor.on "change", -> setTimeout updateAnalysis, 500
+editor.getSession().on "changeScrollTop", (scrollTop) -> analysis.getSession().setScrollTop scrollTop

@@ -8,23 +8,31 @@
 				padding: 0;
 			}
 
+			body {
+				/*background: #272822;*/
+			}
+
 			#editor {
-				width: 30vw;
+				width: 50vw;
 				height: 100vh;
 				display: inline-block;
 				margin: 0;
 			}
 
-			.disabled .ace_marker-layer .ace_selection {
-				background: transparent !important;
+			.disabled {
+				float: right;
 			}
 
 			.disabled .ace_cursor {
 				color: transparent !important;
 			}
 
+			.disabled .ace_scrollbar {
+				display: none;
+			}
+
 			#analysis {
-				width: 40vw;
+				width: 49.9vw;
 				height: 100vh;
 				display: inline-block;
 				margin: 0;
@@ -76,7 +84,7 @@ while(a < x) {
 true;
 10 > 5;</div>
 			
-		<div id="analysis" class="disabled"></div>
+		<div id="analysis" class="disabled" on></div>
 
 		<script src="src-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
 		<script type="text/coffeescript" src="jsswifteditor.coffee"></script>
