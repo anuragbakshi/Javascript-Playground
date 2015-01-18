@@ -1,3 +1,5 @@
+SILENCE_CONSOLE = "console.debug = function() {}; console.info = function() {}; console.error = function() {}; console.log = function() {};\n"
+
 LOOP_MAX_ITERATIONS = 5000
 
 editor = ace.edit "editor"
@@ -12,6 +14,19 @@ analysis.renderer.setShowGutter false
 analysis.setHighlightActiveLine false
 
 # *************************************************************************************************
+verifyHalts = (code, timeout, callback) ->
+	blob = new Blob [SILENCE_CONSOLE + code + "\npostMessage();"], type: "application/javascript"
+	worker = new Worker URL.createObjectURL blob
+	
+	workerTimer = setTimeout ->
+		worker.terminate.call worker
+		callback false
+	, timeout
+
+	worker.onmessage = ->
+		clearTimeout workerTimer
+		callback true
+
 tryEval = (code) ->
 	try 
 		sandbox.eval code
@@ -39,11 +54,12 @@ typeOf = (obj) ->
 
 countIterations = (rootNode, block, source) ->
 	modifiedCode = "var __jsPlaygroundCount__ = 0;
-					#{source.substring(block.range[0], block.body.range[0] + 1)}
+					#{source.substring(0, block.body.range[0] + 1)}
 					__jsPlaygroundCount__++;
-					#{source.substring(block.body.range[0] + 1, block.range[1])}
+					#{source.substring(block.body.range[0] + 1, source.length)}
 					__jsPlaygroundCount__;"
 
+	console.log modifiedCode
 	# worker = new Worker "data:text/javascript;base64,#{btoa(modifiedCode)}"
 	# blob = new Blob [modifiedCode], type: "application/javascript"
 	# worker = new Worker URL.createObjectURL blob
@@ -58,9 +74,9 @@ countIterations = (rootNode, block, source) ->
 
 countCalls = (rootNode, block, source) ->
 	modifiedCode = "var __jsPlaygroundCount__ = 0;
-						#{source.substring(rootNode.range[0], block.body.range[0] + 1)}
+						#{source.substring(0, block.body.range[0] + 1)}
 						__jsPlaygroundCount__++;
-						#{source.substring(block.body.range[0] + 1, rootNode.range[1])}
+						#{source.substring(block.body.range[0] + 1, source.length)}
 						__jsPlaygroundCount__;"
 	# console.log(modifiedCode)
 	
@@ -182,10 +198,12 @@ parse = (rootNode, source) ->
 				codeAnalysis.push analysisChunk
 
 			when "ForStatement", "WhileStatement"
+				recreateSandbox()
+
 				vars = []
 				iterations = countIterations rootNode, node, source
 				vars.push
-					name: "(#{if iterations is -1 then ">#{LOOP_MAX_ITERATIONS}" else iterations} times)"
+					name: "(#{iterations} times)"
 					type: node.type
 
 				analysisChunk = {}
@@ -202,32 +220,36 @@ updateAnalysis = ->
 	recreateSandbox()
 
 	source = editor.getValue()
-	tree = esprima.parse source,
-		loc: true
-		range: true
+	verifyHalts source, 1000, (halted) ->
+		if halted
+			tree = esprima.parse source,
+				loc: true
+				range: true
 
-	# console.log JSON.stringify tree, null, 4
-	# console.log "\n"
+			# console.log JSON.stringify tree, null, 4
+			# console.log "\n"
 
-	codeAnalysis = parse tree, source
+			codeAnalysis = parse tree, source
 
-	lines = []
-	for chunk in codeAnalysis
-		chunkString = ""
-		if chunk.raw?
-			chunkString += chunk.raw
-		if chunk.vars?
-			chunkString += ("#{v.name}: #{v.type} #{if v.value? then "= #{v.value}" else ""}" for v in chunk.vars).join ", "
+			lines = []
+			for chunk in codeAnalysis
+				chunkString = ""
+				if chunk.raw?
+					chunkString += chunk.raw
+				if chunk.vars?
+					chunkString += ("#{v.name}: #{v.type} #{if v.value? then "= #{v.value}" else ""}" for v in chunk.vars).join ", "
 
-		lines[chunk.line - 1] = [] unless lines[chunk.line - 1]?
-		lines[chunk.line - 1].push chunkString
+				lines[chunk.line - 1] = [] unless lines[chunk.line - 1]?
+				lines[chunk.line - 1].push chunkString
 
-	analysisText = ""
-	for line in lines
-		analysisText += line.join " | " if line?
-		analysisText += "\n"
+			analysisText = ""
+			for line in lines
+				analysisText += line.join " | " if line?
+				analysisText += "\n"
 
-	analysis.setValue analysisText
+			analysis.setValue analysisText
+		else
+			analysis.setValue "ERROR: Code does not halt"
 
 updateAnalysis()
-editor.on "change", -> setTimeout updateAnalysis, 100
+editor.on "change", -> setTimeout updateAnalysis, 1000
