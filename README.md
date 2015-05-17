@@ -1,21 +1,7 @@
-Ace (Ajax.org Cloud9 Editor)
-============================
+# JSPlayground
+---
+#### Javascript can be glitch free.
 
-Ace is a code editor written in JavaScript.
+Inspired by Apple's Swift Playground, JSPlayground lets users see their code run at editing time. This Ace-Editor-integrated debug assistant provides information about variables, functions, function calls and loop statements in Javascript code. The outputted metadata is then displayed side by side with the original code in a manner clear for navigation. The editor even catches infinite loops and run time errors - no more browser freezes, no more panic!
 
-This repository has only generated files.
-If you want to work on ace please go to https://github.com/ajaxorg/ace instead.
-
-
-here you can find pre-built files for convenience of embedding.
-it contains 4 versions
- * [src](https://github.com/ajaxorg/ace-builds/tree/master/src)              concatenated but not minified
- * [src-min](https://github.com/ajaxorg/ace-builds/tree/master/src-min)      concatenated and minified with uglify.js
- * [src-noconflict](https://github.com/ajaxorg/ace-builds/tree/master/src-noconflict)      uses ace.require instead of require
- * [src-min-noconflict](https://github.com/ajaxorg/ace-builds/tree/master/src-min-noconflict)      -
-
-
-For a simple way of embedding ace into webpage see https://github.com/ajaxorg/ace-builds/blob/master/editor.html
-To see ace in action go to [kitchen-sink-demo](http://ajaxorg.github.com/ace-builds/kitchen-sink.html), [scrollable-page-demo](http://ajaxorg.github.com/ace-builds/scrollable-page.html), or [minimal demo](http://ajaxorg.github.com/ace-builds/editor.html) 
-
-
+You are welcome to try out JSPlayground [here](http://jslikeswift.appspot.com/)!
