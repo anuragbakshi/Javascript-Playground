@@ -15,7 +15,7 @@ analysis.getSession().setMode "ace/mode/java"
 analysis.setFontSize 14
 analysis.setReadOnly true
 analysis.setShowPrintMargin false
-analysis.setHighLightActiveLine false
+# analysis.setHighLightActiveLine false
 analysis.renderer.setShowGutter false
 analysis.renderer.setShowPrintMargin false
 

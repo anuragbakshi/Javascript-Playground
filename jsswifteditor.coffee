@@ -35,7 +35,7 @@ verifyHalts = (code, timeout, callback) ->
 					if(ex !== undefined)
 						postMessage(e.message);
 					else
-						postMessage();\n"], type: "application/javascript"
+						postMessage(undefined);\n"], type: "application/javascript"
 	
 	worker = new Worker URL.createObjectURL blob
 	
@@ -203,7 +203,6 @@ updateAnalysis = ->
 	verifyHalts source, 1000, (halted, exception) ->
 		if halted
 			if exception?
-				console.log "hbsdjhbfgbs"
 				analysis.setValue "ERROR: #{exception}", -1
 			else
 				tree = esprima.parse source,
